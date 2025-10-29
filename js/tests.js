@@ -62,6 +62,9 @@ $(document).ready(function () {
   assertScoreByCode('FR55P,CH21,FR15+', 35, 'Bonus of Phoenix (Promo) prevents bonus of World Tree');
   assertScoreByCode('FR55P,FR20,FR15,CH22,FR53,FR26,FR27+CH22:FR55,FR53:FR55P', 109, 'Copy of a Phoenix (Promo) only counts as a Beast');
   assertScoreByCode('FR55P,FR10,FR20,FR15,FR36,FR38,FR26,CH05+', 132, 'Phoenix (Promo) retains suits when blanked');
+  
+  // Test enabled/disabled card functionality
+  testBenchScoring();
 });
 
 function assertScoreByName(cardNames, expectedScore, message) {
@@ -88,5 +91,44 @@ function assertScore(hand, expectedScore, message) {
     $('#tests').append('<li class="list-group-item list-group-item-danger"><b>TEST FAILED:</b> &nbsp;<a href="index.html?hand=' +
       hand.toString() + '">' + hand.cardNames().join() + '</a>&nbsp; scored ' + score + ' points (expected: ' + expectedScore + ')' +
       (message ? ':&nbsp;<b>' + message + '</b>' : '') + '</li>');
+  }
+}
+
+function testBenchScoring() {
+  // Test that scoreWithCardEnabled works correctly
+  hand.clear();
+  
+  // Add 7 enabled cards
+  hand.addCard(deck.getCardById('CH40')); // Wildfire (40)
+  hand.addCard(deck.getCardById('FR11')); // Lightning (11)
+  hand.addCard(deck.getCardById('FR32')); // Great Flood (32)
+  hand.addCard(deck.getCardById('FR04')); // Water Elemental (4+15=19)
+  hand.addCard(deck.getCardById('FR02')); // Princess (2)
+  hand.addCard(deck.getCardById('FR04B')); // Earth Elemental (4)
+  hand.addCard(deck.getCardById('FR01')); // Protection Rune (1)
+  
+  var baseScore = hand.score(discard);
+  
+  // Manually add a disabled card (Mountain - should add +50 with Wildfire)
+  var mountain = deck.getCardById('FR09');
+  hand.cardsInHand['FR09'] = new CardInHand(mountain, undefined, false);
+  
+  // Test scoreWithCardEnabled
+  var scoreWithMountain = hand.scoreWithCardEnabled('FR09', discard);
+  var expectedDifference = 50; // Mountain (30) + Wildfire bonus (+20)
+  var actualDifference = scoreWithMountain - baseScore;
+  
+  if (actualDifference === expectedDifference) {
+    $('#tests').append('<li class="list-group-item list-group-item-success"><b>TEST SUCCESS: scoreWithCardEnabled correctly calculates Mountain potential (+' + actualDifference + ')</b></li>');
+  } else {
+    $('#tests').append('<li class="list-group-item list-group-item-danger"><b>TEST FAILED: scoreWithCardEnabled for Mountain expected +' + expectedDifference + ', got +' + actualDifference + '</b></li>');
+  }
+  
+  // Verify original state is preserved
+  var scoreAfter = hand.score(discard);
+  if (scoreAfter === baseScore) {
+    $('#tests').append('<li class="list-group-item list-group-item-success"><b>TEST SUCCESS: scoreWithCardEnabled preserves original enabled state</b></li>');
+  } else {
+    $('#tests').append('<li class="list-group-item list-group-item-danger"><b>TEST FAILED: scoreWithCardEnabled mutated state (base: ' + baseScore + ', after: ' + scoreAfter + ')</b></li>');
   }
 }

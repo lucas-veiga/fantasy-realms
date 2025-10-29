@@ -62,10 +62,15 @@
     {{/each}}
   </script>
   <script id="hand-template" type="text/x-handlebars-template">
-    {{#each playerCards}}
+    {{#if hasEnabledCards}}
+    <div id="active-hand-header">Active Hand</div>
+    {{/if}}
+    {{#each enabledCards}}
     <div id="card-{{id}}" class="card" onclick="selectFromHand('{{id}}')">
       <ul class="list-group">
         <li class="list-group-item {{suit}} {{#if blanked}}blanked{{/if}}">
+          <input type="checkbox" class="card-checkbox" checked onclick="event.stopPropagation(); toggleCardEnabled('{{id}}');">
+          <button class="collapse-button" onclick="event.stopPropagation(); toggleCardCollapse('{{id}}');">{{#if collapsed}}▶{{else}}▼{{/if}}</button>
           <span class="badge badge-secondary">
             {{#if blanked}}
               {{i18n 'label.blanked'}}
@@ -87,6 +92,7 @@
           {{/if}}
           <span class="float-right points">{{points}}</span>
         </li>
+        {{#unless collapsed}}
         {{#if timing}}
         <li class="list-group-item timing">
           <b>{{{i18n 'timing.' timing}}}:</b>
@@ -135,6 +141,59 @@
           <button type="button" onclick="event.stopPropagation(); switchToDiscardArea('{{id}}');" class="btn btn-sm btn-primary float-right">{{i18n 'button.discard-area'}}</button>
         </li>
         {{/if}}
+        {{/unless}}
+      </ul>
+    </div>
+    {{/each}}
+    {{#if hasDisabledCards}}
+    <div id="bench-header">Bench (click to add to hand)</div>
+    {{/if}}
+    {{#each disabledCards}}
+    <div id="card-{{id}}" class="card bench-card {{#unless canEnable}}bench-disabled{{/unless}}" onclick="toggleCardEnabled('{{id}}')">
+      <ul class="list-group">
+        <li class="list-group-item {{suit}}">
+          <input type="checkbox" class="card-checkbox" {{#unless canEnable}}disabled{{/unless}} onclick="event.stopPropagation(); toggleCardEnabled('{{id}}');">
+          <button class="collapse-button" onclick="event.stopPropagation(); toggleCardCollapse('{{id}}');">{{#if collapsed}}▶{{else}}▼{{/if}}</button>
+          <span class="badge badge-secondary">{{strength}}</span>
+          {{#if impersonator}}
+            {{#if magic}}
+              {{{i18n actionData.[0] '.name'}}}
+            {{else}}
+              {{{i18n id '.name'}}}
+            {{/if}}
+          {{else}}
+            {{{i18n id '.name'}}}
+          {{/if}}
+          {{#if canEnable}}
+            {{#if potentialScore}}
+              {{#if (gt potentialScore 0)}}
+                <span class="bench-potential positive">+{{potentialScore}}</span>
+              {{else}}
+                <span class="bench-potential negative">{{potentialScore}}</span>
+              {{/if}}
+            {{else}}
+              <span class="bench-potential neutral">+0</span>
+            {{/if}}
+          {{else}}
+            <span class="bench-potential at-limit">(at limit)</span>
+          {{/if}}
+        </li>
+        {{#unless collapsed}}
+        {{#if bonus}}
+        <li class="list-group-item bonus">
+          {{{i18n id '.bonus'}}}
+        </li>
+        {{/if}}
+        {{#if penalty}}
+        <li class="list-group-item penalty">
+          {{#if card.penalty}}
+            {{{i18n id '.penalty'}}}
+          {{else}}
+            {{{i18n actionData.[0] '.penalty'}}}
+          {{/if}}
+        </li>
+        {{/if}}
+        {{/unless}}
       </ul>
     </div>
     {{/each}}
@@ -159,7 +218,7 @@
       <a href="https://wizkids.com/fantasy-realms/"><img src="img/fantasy-realms.jpg" style="height: 3rem; max-width: 100%;"></img></a>
       <div id="header-right">
         <div id="hand-info">
-          <span id="cardCount">0</span><span class="separator">/</span><span id="cardLimit">7</span>
+          <span id="cardCount">0</span><span class="separator">/</span><span id="cardLimit">7</span><span id="totalCount"></span>
           <span id="points">000</span>
         </div>
         <button id="clear" type="button" class="btn btn-success" onclick="reset()">↻</button>

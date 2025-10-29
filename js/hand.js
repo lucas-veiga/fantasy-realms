@@ -7,10 +7,12 @@ class Hand {
 
   addCard(card) {
     if (this._canAdd(card)) {
+      // New cards are enabled if we're under the limit, otherwise they go to bench
+      var enabled = this.enabledSize() < this.limit();
       if (card.cursedItem) {
-        this.cursedItems[card.id] = new CardInHand(card);
+        this.cursedItems[card.id] = new CardInHand(card, undefined, enabled);
       } else {
-        this.cardsInHand[card.id] = new CardInHand(card);
+        this.cardsInHand[card.id] = new CardInHand(card, undefined, enabled);
       }
       return true;
     }
@@ -18,33 +20,22 @@ class Hand {
   }
 
   _canAdd(newCard) {
+    // Cursed items have separate logic
     if (newCard.cursedItem) {
       return this.cursedItems[newCard.id] === undefined;
-    } else if (this.cardsInHand[newCard.id] !== undefined || this.size() > this._defaultLimit()) {
-      return false;
-    } else if (this.size() < this._limitWithoutNecromancer()) {
-      return true;
-    } else if (![NECROMANCER, CH_NECROMANCER].includes(newCard.id) && newCard.extraCard) {
-      return true;
-    } else if (this.containsId(NECROMANCER, true) || newCard.id === NECROMANCER) {
-      var targetFound = false;
-      for (const card of this.cards()) {
-        if (card.card.id !== NECROMANCER && deck.getCardById(NECROMANCER).relatedSuits.includes(card.card.suit)) {
-          targetFound = true;
-        }
-      }
-      return targetFound || this.containsId(NECROMANCER, true) && deck.getCardById(NECROMANCER).relatedSuits.includes(newCard.suit);
-    } else if (this.containsId(CH_NECROMANCER, true) || newCard.id === CH_NECROMANCER) {
-      var targetFound = false;
-      for (const card of this.cards()) {
-        if (card.card.id !== CH_NECROMANCER && deck.getCardById(CH_NECROMANCER).relatedSuits.includes(card.card.suit)) {
-          targetFound = true;
-        }
-      }
-      return targetFound || this.containsId(CH_NECROMANCER, true) && deck.getCardById(CH_NECROMANCER).relatedSuits.includes(newCard.suit);
-    } else {
+    }
+    
+    // Don't add duplicates
+    if (this.cardsInHand[newCard.id] !== undefined) {
       return false;
     }
+    
+    // Allow up to 20 total cards
+    if (this.totalSize() >= 20) {
+      return false;
+    }
+    
+    return true;
   }
 
   _normalizeId(id) {
@@ -90,7 +81,7 @@ class Hand {
 
   containsId(cardId, allowBlanked) {
     cardId = this._normalizeId(cardId);
-    return this.cardsInHand[cardId] !== undefined && (!this.cardsInHand[cardId].blanked || allowBlanked);
+    return this.cardsInHand[cardId] !== undefined && this.cardsInHand[cardId].enabled && (!this.cardsInHand[cardId].blanked || allowBlanked);
   }
 
   containsSuit(suitName) {
@@ -145,7 +136,7 @@ class Hand {
 
   nonBlankedCards() {
     return this.cards().filter(function (card) {
-      return !card.blanked;
+      return card.enabled && !card.blanked;
     });
   }
 
@@ -155,6 +146,51 @@ class Hand {
 
   cards() {
     return Object.values(this.cardsInHand);
+  }
+
+  enabledCards() {
+    return this.cards().filter(function (card) {
+      return card.enabled;
+    });
+  }
+
+  disabledCards() {
+    return this.cards().filter(function (card) {
+      return !card.enabled;
+    });
+  }
+
+  enabledSize() {
+    var count = 0;
+    for (const card of this.cards()) {
+      if (card.enabled) {
+        count++;
+      }
+    }
+    for (const cursedItem of this.faceDownCursedItems()) {
+      if (cursedItem.enabled) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  totalSize() {
+    return this.size() + Object.keys(this.cursedItems).length;
+  }
+
+  toggleCard(id) {
+    var normalizedId = this._normalizeId(id);
+    var card = this.cardsInHand[normalizedId] || this.cursedItems[normalizedId];
+    if (card) {
+      // If trying to enable and at limit, don't allow
+      if (!card.enabled && this.enabledSize() >= this.limit()) {
+        return false;
+      }
+      card.enabled = !card.enabled;
+      return true;
+    }
+    return false;
   }
 
   cardNames() {
@@ -173,14 +209,45 @@ class Hand {
       score += card.score(this, discard);
     }
     for (const cursedItem of this.faceDownCursedItems()) {
-      score += cursedItem.score(this, discard);
+      if (cursedItem.enabled) {
+        score += cursedItem.score(this, discard);
+      }
     }
     return score;
   }
 
+  // Calculate score if a specific card were enabled (without mutating state)
+  scoreWithCardEnabled(cardId, discard) {
+    // Store original enabled state
+    var card = this.getCardById(cardId);
+    if (!card) return this.score(discard);
+    
+    var originalEnabled = card.enabled;
+    
+    // Temporarily enable the card
+    card.enabled = true;
+    
+    // Calculate score (this will call _resetHand and recreate objects)
+    var potentialScore = this.score(discard);
+    
+    // Restore original state on the NEW object created by _resetHand
+    var freshCard = this.getCardById(cardId);
+    if (freshCard) {
+      freshCard.enabled = originalEnabled;
+    }
+    
+    return potentialScore;
+  }
+
   _resetHand() {
     for (const card of this.cards()) {
-      this.cardsInHand[card.id] = new CardInHand(card.card, card.actionData);
+      var enabled = card.enabled;
+      this.cardsInHand[card.id] = new CardInHand(card.card, card.actionData, enabled);
+    }
+    // Also reset cursed items to preserve their enabled state
+    for (const cursedItem of this.faceDownCursedItems()) {
+      var enabled = cursedItem.enabled;
+      this.cursedItems[cursedItem.id] = new CardInHand(cursedItem.card, cursedItem.actionData, enabled);
     }
   }
 
@@ -195,9 +262,9 @@ class Hand {
 
   _clearPenalties() {
     for (const card of this.cards()) {
-      if (card.clearsPenalty !== undefined) {
+      if (card.enabled && card.clearsPenalty !== undefined) {
         for (const target of this.cards()) {
-          if (card.clearsPenalty(target)) {
+          if (target.enabled && card.clearsPenalty(target)) {
             target.penaltyCleared = true;
           }
         }
@@ -209,9 +276,9 @@ class Hand {
     // Demon blanking takes place before any other blanking
     if (this.containsId(CH_DEMON)) {
       const demon = this.getCardById(CH_DEMON);
-      if (!demon.penaltyCleared) {
+      if (demon.enabled && !demon.penaltyCleared) {
         for (const target of this.cards()) {
-          if (demon.blanks(target, this) && !this._cannotBeBlanked(target)) {
+          if (target.enabled && demon.blanks(target, this) && !this._cannotBeBlanked(target)) {
             target.blanked = true;
           }
         }
@@ -322,13 +389,10 @@ class Hand {
 
   limit() {
     var limit = this._defaultLimit();
-    for (const card of this.cards()) {
+    // Check ALL cards (enabled and disabled) for Necromancer bonus
+    var allCards = this.cards().concat(this.faceDownCursedItems());
+    for (const card of allCards) {
       if (card.extraCard) {
-        return limit + 1;
-      }
-    }
-    for (const cursedItem of this.faceDownCursedItems()) {
-      if (cursedItem.extraCard) {
         return limit + 1;
       }
     }
@@ -355,41 +419,71 @@ class Hand {
   }
 
   toString() {
-    var stringValue = Object.keys(this.cardsInHand).join();
+    var cardStrings = [];
+    // Add regular cards with enabled state
+    for (const card of this.cards()) {
+      var prefix = card.enabled ? '' : '!';
+      cardStrings.push(prefix + card.id);
+    }
+    // Add cursed items with enabled state
+    for (const cursedItem of this.faceDownCursedItems()) {
+      var prefix = cursedItem.enabled ? '' : '!';
+      cardStrings.push(prefix + cursedItem.id);
+    }
+    
     var actions = [];
     for (const card of this.cards()) {
       if (card.actionData !== undefined) {
         actions.push(card.id + ':' + card.actionData.join(':'));
       }
     }
-    return Object.keys({ ...this.cursedItems, ...this.cardsInHand }).join() + '+' + actions.join();
+    return cardStrings.join() + '+' + actions.join();
   }
 
   loadFromString(string) {
     var parts = string.split('+');
     var cardIds = parts[0].split(',');
     var cardActions = parts[1].split(',').map(action => action.split(':'));
-    this.loadFromArrays(cardIds, cardActions);
+    
+    var cardsWithState = cardIds.map(function(cardId) {
+      var enabled = true;
+      if (cardId.startsWith('!')) {
+        enabled = false;
+        cardId = cardId.substring(1);
+      }
+      return { id: cardId, enabled: enabled };
+    });
+    
+    this.loadFromArrays(cardsWithState, cardActions);
   }
 
-  loadFromArrays(cardIds, cardActions) {
+  loadFromArrays(cardsWithState, cardActions) {
     this.clear();
-    for (const cardId of cardIds) {
-      this.addCard(deck.getCardById(cardId));
+    for (const cardWithState of cardsWithState) {
+      var card = deck.getCardById(cardWithState.id);
+      if (card) {
+        if (card.cursedItem) {
+          this.cursedItems[card.id] = new CardInHand(card, undefined, cardWithState.enabled);
+        } else {
+          this.cardsInHand[card.id] = new CardInHand(card, undefined, cardWithState.enabled);
+        }
+      }
     }
     for (const cardAction of cardActions) {
       if (cardAction.length > 1) {
         var cardId = this._normalizeId(cardAction[0]);
         var action = cardAction.slice(1);
         var actionCard = this.getCardById(cardId);
-        this.cardsInHand[cardId] = new CardInHand(actionCard.card, action);
+        if (actionCard) {
+          this.cardsInHand[cardId] = new CardInHand(actionCard.card, action, actionCard.enabled);
+        }
       }
     }
   }
 
   undoCardAction(id) {
     var actionCard = this.getCardById(id);
-    this.cardsInHand[id] = new CardInHand(actionCard.card, undefined);
+    this.cardsInHand[id] = new CardInHand(actionCard.card, undefined, actionCard.enabled);
   }
 
 }
@@ -398,9 +492,10 @@ var hand = new Hand();
 
 class CardInHand {
 
-  constructor(card, actionData) {
+  constructor(card, actionData, enabled) {
     this.card = card;
     this.actionData = actionData;
+    this.enabled = enabled !== undefined ? enabled : true;
     // TODO: is there a better way to copy these properties
     this.id = card.id;
     this.name = card.name;

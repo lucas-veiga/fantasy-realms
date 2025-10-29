@@ -12,6 +12,10 @@ Handlebars.registerHelper('i18n', function () {
   }
 });
 
+Handlebars.registerHelper('gt', function (a, b) {
+  return a > b;
+});
+
 var languages = {
   'en': 'English',
   'de': 'Deutsch',
@@ -67,6 +71,7 @@ var cursedHoardItems = false;
 var cursedHoardSuits = false;
 var playerCount = 4;
 var inputDiscardArea = false;
+var collapsedCards = {}; // Track which cards are collapsed (UI state only)
 
 function selectLanguage(lang) {
   localStorage.setItem('language', lang);
@@ -273,6 +278,16 @@ function removeFromHand(id) {
   updateHandView();
 }
 
+function toggleCardEnabled(id) {
+  hand.toggleCard(id);
+  updateHandView();
+}
+
+function toggleCardCollapse(id) {
+  collapsedCards[id] = !collapsedCards[id];
+  updateHandView();
+}
+
 function removeFromDiscard(id) {
   swoosh.play();
   discard.deleteCardById(id);
@@ -281,9 +296,42 @@ function removeFromDiscard(id) {
 
 function updateHandView() {
   var template = Handlebars.compile($("#hand-template").html());
+  
   var score = hand.score(discard);
+  
+  // Get fresh references AFTER scoring (since score() calls _resetHand())
+  var allCards = hand.faceDownCursedItems().concat(hand.cards());
+  var enabledCards = allCards.filter(function(card) { return card.enabled; });
+  var disabledCards = allCards.filter(function(card) { return !card.enabled; });
+  
+  // Add collapsed state to all cards
+  for (var i = 0; i < enabledCards.length; i++) {
+    enabledCards[i].collapsed = collapsedCards[enabledCards[i].id] || false;
+  }
+  for (var i = 0; i < disabledCards.length; i++) {
+    disabledCards[i].collapsed = collapsedCards[disabledCards[i].id] || false;
+  }
+  
+  // Calculate potential score for each benched card
+  var atLimit = hand.enabledSize() >= hand.limit();
+  for (var i = 0; i < disabledCards.length; i++) {
+    var card = disabledCards[i];
+    if (atLimit) {
+      card.potentialScore = null;
+      card.canEnable = false;
+    } else {
+      // Use scoreWithCardEnabled to calculate score without state mutation issues
+      var potentialScore = hand.scoreWithCardEnabled(card.id, discard);
+      card.potentialScore = potentialScore - score;
+      card.canEnable = true;
+    }
+  }
+  
   var html = template({
-    playerCards: hand.faceDownCursedItems().concat(hand.cards()),
+    enabledCards: enabledCards,
+    disabledCards: disabledCards,
+    hasEnabledCards: enabledCards.length > 0,
+    hasDisabledCards: disabledCards.length > 0,
     playerCount: playerCount,
     playerCounts: [2, 3, 4, 5, 6]
   }, {
@@ -295,8 +343,17 @@ function updateHandView() {
   } else {
     $('#points').text('-' + ('000' + Math.abs(score)).slice(-3));
   }
-  $('#cardCount').text(hand.size());
+  $('#cardCount').text(hand.enabledSize());
   $('#cardLimit').text(hand.limit());
+  
+  // Show total count if different from enabled count
+  var totalSize = hand.totalSize();
+  if (totalSize > hand.enabledSize()) {
+    $('#totalCount').text(' (' + totalSize + ' total)');
+  } else {
+    $('#totalCount').text('');
+  }
+  
   if (hand.empty()) {
     $('#settings').show();
   } else {

@@ -1,5 +1,5 @@
 var APP_PREFIX = 'fantasy-realms-';
-var VERSION = '1.0.43';
+var VERSION = '1.0.60';
 var CACHE_NAME = APP_PREFIX + VERSION;
 var URLS = [
   '/',
@@ -66,14 +66,14 @@ var URLS = [
 ];
 
 self.addEventListener('fetch', function (e) {
-  console.log('fetch request: ' + e.request.url);
+  // console.log('fetch request: ' + e.request.url);
   e.respondWith(
     caches.match(e.request).then(function (request) {
       if (request) {
-        console.log('responding with cache: ' + e.request.url);
+        // console.log('responding with cache: ' + e.request.url);
         return request;
       } else {
-        console.log('file is not cached, fetching: ' + e.request.url);
+        // console.log('file is not cached, fetching: ' + e.request.url);
         return fetch(e.request);
       }
     })
@@ -98,7 +98,7 @@ self.addEventListener('activate', function (e) {
       cacheWhitelist.push(CACHE_NAME);
       return Promise.all(keyList.map(function (key, i) {
         if (cacheWhitelist.indexOf(key) === -1) {
-          console.log('deleting cache: ' + keyList[i]);
+          // thconsole.log('deleting cache: ' + keyList[i]);
           return caches.delete(keyList[i]);
         }
       }));
