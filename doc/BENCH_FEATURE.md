@@ -583,21 +583,24 @@ Example structure:
 }
 
 .bench-potential.positive {
-  color: #28a745;
+  color: #fff;
+  background-color: #28a745;
 }
 
 .bench-potential.negative {
-  color: #dc3545;
+  color: #fff;
+  background-color: #dc3545;
 }
 
 .bench-potential.neutral {
-  color: #6c757d;
+  color: #fff;
+  background-color: #6c757d;
 }
 
 .bench-potential.at-limit {
-  color: #999;
-  font-style: italic;
-  font-weight: normal;
+  color: #fff;
+  background-color: #ffc107;
+  font-size: 0.8rem;
 }
 ```
 
