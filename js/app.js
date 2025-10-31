@@ -278,6 +278,12 @@ function removeFromHand(id) {
   updateHandView();
 }
 
+function removeFromBench(id) {
+  swoosh.play();
+  hand.deleteCardById(id);
+  updateHandView();
+}
+
 function toggleCardEnabled(id) {
   hand.toggleCard(id);
   updateHandView();

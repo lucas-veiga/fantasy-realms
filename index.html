@@ -146,10 +146,10 @@
     </div>
     {{/each}}
     {{#if hasDisabledCards}}
-    <div id="bench-header">Bench (click to add to hand)</div>
+    <div id="bench-header">Bench (click header to remove, checkbox to add to hand)</div>
     {{/if}}
     {{#each disabledCards}}
-    <div id="card-{{id}}" class="card bench-card {{#unless canEnable}}bench-disabled{{/unless}}" onclick="toggleCardEnabled('{{id}}')">
+    <div id="card-{{id}}" class="card bench-card {{#unless canEnable}}bench-disabled{{/unless}}" onclick="removeFromBench('{{id}}')">
       <ul class="list-group">
         <li class="list-group-item {{suit}}">
           <input type="checkbox" class="card-checkbox" {{#unless canEnable}}disabled{{/unless}} onclick="event.stopPropagation(); toggleCardEnabled('{{id}}');">

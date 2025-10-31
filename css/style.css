@@ -456,12 +456,14 @@ button {
 /* Bench card styling */
 .bench-card {
   opacity: 0.85;
+  cursor: pointer;
 }
 
 .bench-card:hover {
   opacity: 1;
   transform: translateX(2px);
   transition: all 0.2s ease;
+  background-color: rgba(220, 53, 69, 0.05);
 }
 
 .bench-disabled {
@@ -471,6 +473,7 @@ button {
 
 .bench-disabled:hover {
   transform: none;
+  background-color: transparent;
 }
 
 /* Potential score styling */
