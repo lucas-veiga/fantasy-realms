@@ -97,25 +97,22 @@ function assertScore(hand, expectedScore, message) {
 function testBenchScoring() {
   // Test that scoreWithCardEnabled works correctly
   hand.clear();
-  
-  // Add 7 enabled cards
-  hand.addCard(deck.getCardById('CH40')); // Wildfire (40)
-  hand.addCard(deck.getCardById('FR11')); // Lightning (11)
-  hand.addCard(deck.getCardById('FR32')); // Great Flood (32)
-  hand.addCard(deck.getCardById('FR04')); // Water Elemental (4+15=19)
-  hand.addCard(deck.getCardById('FR02')); // Princess (2)
-  hand.addCard(deck.getCardById('FR04B')); // Earth Elemental (4)
-  hand.addCard(deck.getCardById('FR01')); // Protection Rune (1)
-  
+
+  // Add 4 enabled cards: Wildfire + Smoke (so Mountain gets +50 bonus), plus Lightning and Candle
+  hand.addCard(deck.getCardById('FR16')); // Wildfire (40)
+  hand.addCard(deck.getCardById('FR13')); // Smoke (27)
+  hand.addCard(deck.getCardById('FR19')); // Lightning (11)
+  hand.addCard(deck.getCardById('FR17')); // Candle (2)
+
   var baseScore = hand.score(discard);
-  
-  // Manually add a disabled card (Mountain - should add +50 with Wildfire)
-  var mountain = deck.getCardById('FR09');
-  hand.cardsInHand['FR09'] = new CardInHand(mountain, undefined, false);
-  
+
+  // Manually add Mountain as a disabled (bench) card: scores 9 base + 50 bonus with Smoke+Wildfire
+  var mountain = deck.getCardById('FR01');
+  hand.cardsInHand['FR01'] = new CardInHand(mountain, undefined, false);
+
   // Test scoreWithCardEnabled
-  var scoreWithMountain = hand.scoreWithCardEnabled('FR09', discard);
-  var expectedDifference = 50; // Mountain (30) + Wildfire bonus (+20)
+  var scoreWithMountain = hand.scoreWithCardEnabled('FR01', discard);
+  var expectedDifference = 59; // Mountain base (9) + Smoke+Wildfire bonus (+50)
   var actualDifference = scoreWithMountain - baseScore;
   
   if (actualDifference === expectedDifference) {
