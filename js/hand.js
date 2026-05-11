@@ -183,9 +183,13 @@ class Hand {
     var normalizedId = this._normalizeId(id);
     var card = this.cardsInHand[normalizedId] || this.cursedItems[normalizedId];
     if (card) {
-      // If trying to enable and at limit, don't allow
-      if (!card.enabled && this.enabledSize() >= this.limit()) {
-        return false;
+      if (!card.enabled) {
+        // Temporarily enable to compute the post-enable limit; this correctly handles
+        // extraCard cards (e.g. Necromancer) whose presence raises the limit itself.
+        card.enabled = true;
+        var wouldExceedLimit = this.enabledSize() > this.limit();
+        card.enabled = false;
+        if (wouldExceedLimit) return false;
       }
       card.enabled = !card.enabled;
       return true;
@@ -389,10 +393,13 @@ class Hand {
 
   limit() {
     var limit = this._defaultLimit();
-    // Check ALL cards (enabled and disabled) for Necromancer bonus
-    var allCards = this.cards().concat(this.faceDownCursedItems());
-    for (const card of allCards) {
+    for (const card of this.enabledCards()) {
       if (card.extraCard) {
+        return limit + 1;
+      }
+    }
+    for (const cursedItem of this.faceDownCursedItems()) {
+      if (cursedItem.enabled && cursedItem.extraCard) {
         return limit + 1;
       }
     }
@@ -401,21 +408,6 @@ class Hand {
 
   _defaultLimit() {
     return 7 + (cursedHoardSuits ? 1 : 0);
-  }
-
-  _limitWithoutNecromancer() {
-    var limit = this._defaultLimit();
-    for (const card of this.cards()) {
-      if (card.extraCard && ![NECROMANCER, CH_NECROMANCER].includes(card.id)) {
-        return limit + 1;
-      }
-    }
-    for (const cursedItem of this.faceDownCursedItems()) {
-      if (cursedItem.extraCard) {
-        return limit + 1;
-      }
-    }
-    return limit;
   }
 
   toString() {
