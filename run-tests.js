@@ -213,6 +213,88 @@ assertScoreByCode('FR21,FR13,FR45+', 47, 'Smoke + War Dirigible');
   );
 })();
 
+(function testScoreWithCardEnabledEdgeCases() {
+  function assert(condition, passMsg, failMsg) {
+    if (condition) { passed++; console.log('\x1b[32mPASS\x1b[0m ' + passMsg); }
+    else           { failed++; console.log('\x1b[31mFAIL\x1b[0m ' + failMsg); }
+  }
+
+  // 3.1: Necromancer bench potential includes its own strength
+  hand.clear();
+  ['FR16','FR13','FR19','FR17','FR01','FR02'].forEach(function(id) {
+    hand.addCard(deck.getCardById(id));
+  });
+  hand.cardsInHand['FR28'] = new CardInHand(deck.getCardById('FR28'), undefined, false);
+  var base31 = hand.score();
+  var potential31 = hand.scoreWithCardEnabled('FR28');
+  assert(
+    potential31 > base31 && potential31 - base31 >= 3,
+    'scoreWithCardEnabled(Necromancer) includes its own strength (delta=' + (potential31 - base31) + ')',
+    'scoreWithCardEnabled(Necromancer) should add >= 3 to score, got delta=' + (potential31 - base31)
+  );
+
+  // 3.2: No limit inflation; no mutation when FR05 evaluated alongside benched Necromancer
+  // (FR11 instead of FR16 so Wildfire doesn't blank Earth Elemental)
+  hand.clear();
+  ['FR11','FR13','FR19','FR17','FR01','FR02','FR04'].forEach(function(id) {
+    hand.addCard(deck.getCardById(id));
+  });
+  hand.cardsInHand['FR28'] = new CardInHand(deck.getCardById('FR28'), undefined, false);
+  hand.cardsInHand['FR05'] = new CardInHand(deck.getCardById('FR05'), undefined, false);
+  var base32 = hand.score();
+  var potential32 = hand.scoreWithCardEnabled('FR05');
+  assert(
+    typeof potential32 === 'number' && potential32 > base32,
+    'scoreWithCardEnabled(FR05) returns a score including FR05 (potential=' + potential32 + ', base=' + base32 + ')',
+    'scoreWithCardEnabled(FR05) should return a score greater than base (potential=' + potential32 + ', base=' + base32 + ')'
+  );
+  assert(
+    hand.limit() === 7,
+    'scoreWithCardEnabled(FR05) does not inflate limit() — Necromancer still benched',
+    'scoreWithCardEnabled(FR05) should not inflate limit() (expected 7, got ' + hand.limit() + ')'
+  );
+  assert(
+    hand.enabledSize() === 7,
+    'scoreWithCardEnabled(FR05) does not mutate enabledSize()',
+    'scoreWithCardEnabled(FR05) should not mutate enabledSize() (expected 7, got ' + hand.enabledSize() + ')'
+  );
+
+  // 3.3: No state mutation — all card.enabled values identical before and after
+  hand.clear();
+  ['FR16','FR13','FR19','FR17'].forEach(function(id) {
+    hand.addCard(deck.getCardById(id));
+  });
+  hand.cardsInHand['FR01'] = new CardInHand(deck.getCardById('FR01'), ['dummy'], false);
+  var snapshotBefore = {};
+  hand.cards().forEach(function(c) { snapshotBefore[c.id] = c.enabled; });
+  hand.scoreWithCardEnabled('FR01');
+  var allMatch = hand.cards().every(function(c) { return c.enabled === snapshotBefore[c.id]; });
+  assert(
+    allMatch,
+    'scoreWithCardEnabled(FR01) does not mutate any card.enabled state',
+    'scoreWithCardEnabled(FR01) mutated at least one card.enabled state'
+  );
+  assert(
+    hand.getCardById('FR01').enabled === false,
+    'scoreWithCardEnabled(FR01) leaves FR01 disabled after call',
+    'scoreWithCardEnabled(FR01) left FR01 enabled after call'
+  );
+
+  // 3.4: Wildfire blanks Earth Elemental — potential equals base (not a bug)
+  hand.clear();
+  ['FR16','FR13','FR19','FR17','FR01','FR02'].forEach(function(id) {
+    hand.addCard(deck.getCardById(id));
+  });
+  hand.cardsInHand['FR05'] = new CardInHand(deck.getCardById('FR05'), undefined, false);
+  var base34 = hand.score();
+  var potential34 = hand.scoreWithCardEnabled('FR05');
+  assert(
+    potential34 === base34,
+    'scoreWithCardEnabled(FR05) equals base when Wildfire blanks it (potential=' + potential34 + ')',
+    'scoreWithCardEnabled(FR05) with Wildfire should equal base (' + base34 + '), got ' + potential34
+  );
+})();
+
 deck.enableCursedHoardSuits();
 cursedHoardSuits = true;
 
