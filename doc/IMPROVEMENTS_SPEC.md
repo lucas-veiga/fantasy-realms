@@ -30,6 +30,8 @@ npx c8 node run-tests.js
 
 **Done when:** running the command above prints a coverage table for `hand.js` and `deck.js`. Aim for >80% line coverage on `hand.js` as a starting baseline.
 
+**Known limitation:** `c8` is installed and works, but coverage only reports on `run-tests.js` (the harness), not `hand.js`/`deck.js`. The game files are loaded via `vm.runInThisContext`, which V8 coverage cannot instrument. Fixing this requires adding `module.exports` to the game files and switching to `require` in `run-tests.js` — but bare `module.exports` throws `ReferenceError` in the browser, so the guard `if (typeof module !== 'undefined') module.exports = ...` is needed. This is a production file change for a test tooling benefit, so it was left as a deferred decision.
+
 ---
 
 ## 2. URL Round-trip (`toString` / `loadFromString`)
