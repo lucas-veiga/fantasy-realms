@@ -423,7 +423,7 @@ var base = {
       return 9 * hand.countSuit('beast');
     },
     clearsPenalty: function (card) {
-      return card.suit === 'beast' && !isPhoenix(card);
+      return card.suit === 'beast';
     },
     relatedSuits: ['beast'],
     relatedCards: []

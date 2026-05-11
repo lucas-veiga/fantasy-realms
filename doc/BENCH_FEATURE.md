@@ -290,26 +290,6 @@ navigator.serviceWorker.register('./service-worker.js');
 
 ## Bug Fixes
 
-### Beastmaster should not protect Phoenix from flood blanking
-
-**File:** `js/deck.js`
-
-Beastmaster's `clearsPenalty` function targeted all beasts, which included Phoenix. This set `penaltyCleared = true` on Phoenix, causing `_applyBlanking` to skip Phoenix's `blankedIf` check — so Great Flood would not blank Phoenix when Beastmaster was in the same hand.
-
-```javascript
-// Before
-clearsPenalty: function (card) {
-  return card.suit === 'beast';
-}
-
-// After
-clearsPenalty: function (card) {
-  return card.suit === 'beast' && !isPhoenix(card);
-}
-```
-
-Cavern still correctly protects Phoenix from floods because it explicitly includes `isPhoenix(card)` in its own `clearsPenalty`. Only Beastmaster was wrong.
-
 ### `testBenchScoring` used nonexistent card IDs
 
 **File:** `js/tests.js`
