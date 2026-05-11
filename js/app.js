@@ -21,13 +21,15 @@ var languages = {
   'de': 'Deutsch',
   'es': 'Español',
   'fr': 'Français',
+  'it': 'Italiano',
   'pl': 'Polski',
   'pt': 'Português',
   'ua': 'Українська',
   'cz': 'Čeština',
   'kr': '한국어',
   'ru': 'Русский',
-  'zh': '中文'
+  'zh': '简体中文',
+  'zh_TW': '繁體中文'
 }
 
 $(document).ready(function () {
