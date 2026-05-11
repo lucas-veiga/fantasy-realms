@@ -153,6 +153,66 @@ assertScoreByCode('FR21,FR13,FR45+', 47, 'Smoke + War Dirigible');
     'toggleCard should allow enabling Necromancer from bench with 7/7 active (result=' + resultAllowed + ', size=' + hand.enabledSize() + ', limit=' + hand.limit() + ')');
 })();
 
+(function testUrlRoundTrip() {
+  function assert(condition, passMsg, failMsg) {
+    if (condition) { passed++; console.log('\x1b[32mPASS\x1b[0m ' + passMsg); }
+    else           { failed++; console.log('\x1b[31mFAIL\x1b[0m ' + failMsg); }
+  }
+
+  // 2.1 Preserves enabled/disabled state
+  hand.clear();
+  hand.addCard(deck.getCardById('FR16'));
+  hand.addCard(deck.getCardById('FR13'));
+  hand.addCard(deck.getCardById('FR19'));
+  hand.cardsInHand['FR01'] = new CardInHand(deck.getCardById('FR01'), undefined, false);
+  var str = hand.toString();
+  hand.clear();
+  hand.loadFromString(str);
+  var s16 = hand.cardsInHand['FR16'], s13 = hand.cardsInHand['FR13'], s19 = hand.cardsInHand['FR19'], s01 = hand.cardsInHand['FR01'];
+  assert(
+    s16.enabled && s13.enabled && s19.enabled && !s01.enabled,
+    'URL round-trip preserves enabled/disabled state',
+    'URL round-trip failed: FR16=' + s16.enabled + ' FR13=' + s13.enabled + ' FR19=' + s19.enabled + ' FR01=' + s01.enabled + ' (expected T T T F)'
+  );
+
+  // 2.2 Preserves Book of Changes action data
+  hand.clear();
+  hand.loadFromString('FR49,FR16+FR49:FR16:flame');
+  var scoreA = hand.score();
+  var str2 = hand.toString();
+  hand.clear();
+  hand.loadFromString(str2);
+  // Capture actionData before score() runs, as it may null it out for missing targets
+  var ad = hand.cardsInHand['FR49'].actionData;
+  var scoreB = hand.score();
+  assert(
+    scoreA === scoreB && ad !== undefined && ad.length === 2 && ad[0] === 'FR16' && ad[1] === 'flame',
+    'URL round-trip preserves Book of Changes action data',
+    'URL round-trip failed to preserve Book of Changes action data (scoreA=' + scoreA + ', scoreB=' + scoreB + ', actionData=' + JSON.stringify(ad) + ')'
+  );
+
+  // 2.3 All cards benched → score is 0
+  hand.clear();
+  hand.loadFromString('!FR16,!FR13,!FR19+');
+  assert(
+    hand.score() === 0 && hand.enabledSize() === 0 && hand.totalSize() === 3,
+    'All cards benched: score=0, enabledSize=0, totalSize=3',
+    'All cards benched failed (score=' + hand.score() + ', enabledSize=' + hand.enabledSize() + ', totalSize=' + hand.totalSize() + ')'
+  );
+
+  // 2.4 Necromancer enabled survives round-trip (limit stays 8)
+  hand.clear();
+  hand.loadFromString('FR28,FR16,FR13,FR19,FR01,FR02,FR04,FR17+');
+  var str3 = hand.toString();
+  hand.clear();
+  hand.loadFromString(str3);
+  assert(
+    hand.limit() === 8 && hand.enabledSize() === 8,
+    'URL round-trip with Necromancer: limit=8, enabledSize=8',
+    'URL round-trip with Necromancer failed (limit=' + hand.limit() + ', enabledSize=' + hand.enabledSize() + ')'
+  );
+})();
+
 deck.enableCursedHoardSuits();
 cursedHoardSuits = true;
 
